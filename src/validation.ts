@@ -1,5 +1,5 @@
 import { imageIds } from "./image-ids.js"
-import type { NewWish, Wish, WishDatabase } from "./types.js"
+import type { NewWish } from "./types.js"
 
 export class ValidationError extends Error {}
 
@@ -49,23 +49,4 @@ export const parseNewWish = (value: unknown): NewWish => {
         activity: readString(value.activity, "activity", 240),
         imageId,
     }
-}
-
-const isStoredWish = (value: unknown): value is Wish => {
-    if (!isRecord(value)) return false
-
-    return typeof value.id === "string"
-        && typeof value.name === "string"
-        && typeof value.message === "string"
-        && typeof value.activity === "string"
-        && typeof value.imageId === "string"
-        && typeof value.createdAt === "string"
-}
-
-export const parseDatabase = (value: unknown): WishDatabase => {
-    if (!isRecord(value) || !Array.isArray(value.wishes) || !value.wishes.every(isStoredWish)) {
-        throw new Error("Wish data file has an invalid structure")
-    }
-
-    return { wishes: value.wishes }
 }

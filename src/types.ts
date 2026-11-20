@@ -8,7 +8,3 @@ export type Wish = {
 }
 
 export type NewWish = Pick<Wish, "name" | "message" | "activity" | "imageId">
-
-export type WishDatabase = {
-    wishes: Wish[]
-}

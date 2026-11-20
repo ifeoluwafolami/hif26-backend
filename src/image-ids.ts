@@ -50,4 +50,13 @@ export const imageIds = new Set([
     "e904941b-60ce-4101-a57d-366aad55a407",
     "ee1d19a1-e83f-43f0-9791-d8ce4fa00448",
     "f06f28d6-47d1-42db-b19c-f022f3324b4b",
+    "pink1",
+    "pink2",
+    "pink3",
+    "pink4",
+    "pink5",
+    "pink6",
+    "pink7",
+    "pink8",
+    "pink9",
 ])

@@ -1,6 +1,6 @@
 # HIF26 backend
 
-Small Node.js API for the birthday wishes and bucket-list entries used by the HIF26 client. Data is stored in `data/wishes.json` with serialized, atomic writes.
+Small Node.js API for the birthday wishes and bucket-list entries used by the HIF26 client. Data is stored in MongoDB.
 
 ## Local development
 
@@ -10,7 +10,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The defaults allow the Vite client at `http://localhost:5173` and start the API at `http://localhost:3000`.
+Replace the placeholder `MONGODB_URI` in `.env` with your MongoDB connection string. The defaults allow the Vite client at `http://localhost:5173`, use the `hif26` database, and start the API at `http://localhost:3000`.
 
 ## Commands
 
@@ -28,6 +28,9 @@ The defaults allow the Vite client at `http://localhost:5173` and start the API 
 
 The server generates wish IDs and timestamps. Submitted image IDs must match the bundled client gallery.
 
-## Deployment
+## Environment
 
-The directory containing `DATA_FILE` must be writable and persistent. Runtime changes are not pushed back to GitHub. Run only one server instance against this file; use SQLite or a managed database before scaling horizontally.
+- `MONGODB_URI` — required MongoDB connection string
+- `MONGODB_DB` — database name; defaults to `hif26`
+- `CLIENT_ORIGIN` — exact allowed frontend origin
+- `PORT` — HTTP port; defaults to `3000`

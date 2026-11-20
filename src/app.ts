@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http"
-import type { WishStore } from "./wish-store.js"
 import { parseNewWish, ValidationError } from "./validation.js"
+import type { WishRepository } from "./wish-repository.js"
 
 type AppOptions = {
-    store: WishStore
+    store: WishRepository
     clientOrigin: string
 }
 

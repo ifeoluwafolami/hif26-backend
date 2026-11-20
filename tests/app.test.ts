@@ -1,17 +1,32 @@
 import assert from "node:assert/strict"
+import { randomUUID } from "node:crypto"
 import { createServer } from "node:http"
-import { mkdtemp } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
 import test from "node:test"
 import { createApp } from "../src/app.js"
-import { WishStore } from "../src/wish-store.js"
+import type { NewWish, Wish } from "../src/types.js"
+import type { WishRepository } from "../src/wish-repository.js"
+
+class MemoryWishRepository implements WishRepository {
+    private readonly wishes: Wish[] = []
+
+    async list() {
+        return [...this.wishes]
+    }
+
+    async create(input: NewWish) {
+        const wish = {
+            ...input,
+            id: randomUUID(),
+            createdAt: new Date().toISOString(),
+        }
+        this.wishes.unshift(wish)
+        return wish
+    }
+}
 
 const startTestServer = async () => {
-    const directory = await mkdtemp(join(tmpdir(), "hif26-api-"))
-    const store = new WishStore(join(directory, "wishes.json"))
     const server = createServer(createApp({
-        store,
+        store: new MemoryWishRepository(),
         clientOrigin: "http://localhost:5173",
     }))
 
