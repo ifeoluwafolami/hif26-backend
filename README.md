@@ -25,8 +25,10 @@ Replace the placeholder `MONGODB_URI` in `.env` with your MongoDB connection str
 - `GET /health`
 - `GET /api/wishes`
 - `POST /api/wishes`
+- `PATCH /api/wishes/:id`
+- `DELETE /api/wishes/:id`
 
-The server generates wish IDs and timestamps. Submitted image IDs must match the bundled client gallery.
+The server generates wish IDs, timestamps, and a private edit token on creation. The token is required as a Bearer token for edits and deletion, which are available for one minute after posting. Submitted image IDs must match the bundled client gallery.
 
 ## Environment
 

@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http"
+import { createHash, randomBytes } from "node:crypto"
 import { parseNewWish, ValidationError } from "./validation.js"
 import type { WishRepository } from "./wish-repository.js"
 
@@ -6,11 +7,22 @@ type AppOptions = {
     store: WishRepository
     clientOrigin: string
     trustProxy?: boolean
+    now?: () => Date
 }
 
 const maximumBodySize = 16 * 1024
 const rateLimitWindow = 60_000
 const rateLimitMaximum = 10
+const editWindowMilliseconds = 60_000
+
+const hashEditToken = (token: string) => createHash("sha256").update(token).digest("hex")
+
+const readEditToken = (request: IncomingMessage) => {
+    const authorization = request.headers.authorization
+    if (!authorization?.startsWith("Bearer ")) return null
+    const token = authorization.slice("Bearer ".length).trim()
+    return token.length > 0 ? token : null
+}
 
 const sendJson = (response: ServerResponse, status: number, body: unknown) => {
     const contents = JSON.stringify(body)
@@ -45,7 +57,7 @@ const readJsonBody = async (request: IncomingMessage): Promise<unknown> => {
     }
 }
 
-export const createApp = ({ store, clientOrigin, trustProxy = false }: AppOptions) => {
+export const createApp = ({ store, clientOrigin, trustProxy = false, now = () => new Date() }: AppOptions) => {
     const allowedOrigins = new Set(clientOrigin.split(",").map(origin => origin.trim()).filter(Boolean))
     const rateLimits = new Map<string, { count: number; resetAt: number }>()
 
@@ -58,8 +70,8 @@ export const createApp = ({ store, clientOrigin, trustProxy = false }: AppOption
         if (origin && allowedOrigins.has(origin)) {
             response.setHeader("access-control-allow-origin", origin)
             response.setHeader("vary", "Origin")
-            response.setHeader("access-control-allow-methods", "GET, POST, OPTIONS")
-            response.setHeader("access-control-allow-headers", "Content-Type")
+            response.setHeader("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS")
+            response.setHeader("access-control-allow-headers", "Content-Type, Authorization")
         } else if (origin) {
             sendJson(response, 403, { error: "Origin is not allowed" })
             return
@@ -105,7 +117,42 @@ export const createApp = ({ store, clientOrigin, trustProxy = false }: AppOption
                 }
 
                 const input = parseNewWish(await readJsonBody(request))
-                sendJson(response, 201, { wish: await store.create(input) })
+                const editToken = randomBytes(32).toString("base64url")
+                const wish = await store.create(input, hashEditToken(editToken))
+                sendJson(response, 201, { wish, editToken })
+                return
+            }
+
+            const wishMatch = url.pathname.match(/^\/api\/wishes\/([^/]+)$/)
+            if (wishMatch && (request.method === "PATCH" || request.method === "DELETE")) {
+                const editToken = readEditToken(request)
+                if (!editToken) {
+                    sendJson(response, 401, { error: "An edit token is required" })
+                    return
+                }
+
+                const id = decodeURIComponent(wishMatch[1] ?? "")
+                const tokenHash = hashEditToken(editToken)
+                const createdAfter = new Date(now().getTime() - editWindowMilliseconds).toISOString()
+
+                if (request.method === "PATCH") {
+                    const input = parseNewWish(await readJsonBody(request))
+                    const wish = await store.update(id, input, tokenHash, createdAfter)
+                    if (!wish) {
+                        sendJson(response, 403, { error: "The one-minute editing window has ended" })
+                        return
+                    }
+                    sendJson(response, 200, { wish })
+                    return
+                }
+
+                const deleted = await store.delete(id, tokenHash, createdAfter)
+                if (!deleted) {
+                    sendJson(response, 403, { error: "The one-minute editing window has ended" })
+                    return
+                }
+                response.statusCode = 204
+                response.end()
                 return
             }
 

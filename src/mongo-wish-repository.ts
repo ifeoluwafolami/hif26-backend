@@ -3,7 +3,19 @@ import { MongoClient, type Collection } from "mongodb"
 import type { NewWish, Wish } from "./types.js"
 import type { WishRepository } from "./wish-repository.js"
 
-type WishDocument = Omit<Wish, "id"> & { _id: string }
+type WishDocument = Omit<Wish, "id"> & {
+    _id: string
+    editTokenHash: string
+}
+
+const wishFromDocument = ({ _id, name, message, activity, imageId, createdAt }: WishDocument): Wish => ({
+    id: _id,
+    name,
+    message,
+    activity,
+    imageId,
+    createdAt,
+})
 
 export class MongoWishRepository implements WishRepository {
     constructor(private readonly collection: Collection<WishDocument>) {}
@@ -14,13 +26,10 @@ export class MongoWishRepository implements WishRepository {
             .sort({ createdAt: -1 })
             .toArray()
 
-        return documents.map(({ _id, ...wish }) => ({
-            id: _id,
-            ...wish,
-        }))
+        return documents.map(wishFromDocument)
     }
 
-    async create(input: NewWish): Promise<Wish> {
+    async create(input: NewWish, editTokenHash: string): Promise<Wish> {
         const wish: Wish = {
             ...input,
             id: randomUUID(),
@@ -28,8 +37,27 @@ export class MongoWishRepository implements WishRepository {
         }
         const { id, ...fields } = wish
 
-        await this.collection.insertOne({ _id: id, ...fields })
+        await this.collection.insertOne({ _id: id, ...fields, editTokenHash })
         return wish
+    }
+
+    async update(id: string, input: NewWish, editTokenHash: string, createdAfter: string): Promise<Wish | null> {
+        const document = await this.collection.findOneAndUpdate(
+            { _id: id, editTokenHash, createdAt: { $gte: createdAfter } },
+            { $set: input },
+            { returnDocument: "after" },
+        )
+
+        return document ? wishFromDocument(document) : null
+    }
+
+    async delete(id: string, editTokenHash: string, createdAfter: string): Promise<boolean> {
+        const result = await this.collection.deleteOne({
+            _id: id,
+            editTokenHash,
+            createdAt: { $gte: createdAfter },
+        })
+        return result.deletedCount === 1
     }
 }
 
