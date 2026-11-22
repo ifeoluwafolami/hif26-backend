@@ -45,8 +45,8 @@ export const parseNewWish = (value: unknown): NewWish => {
 
     return {
         name: readString(value.name, "name", 60),
-        message: readString(value.message, "message", 600),
-        activity: readString(value.activity, "activity", 240),
+        message: readString(value.message, "message", 1000),
+        activity: readString(value.activity, "activity", 500),
         imageId,
     }
 }
