@@ -24,10 +24,10 @@ class MemoryWishRepository implements WishRepository {
     }
 }
 
-const startTestServer = async () => {
+const startTestServer = async (clientOrigin = "http://localhost:5173", trustProxy = false) => {
     const server = createServer(createApp({
         store: new MemoryWishRepository(),
-        clientOrigin: "http://localhost:5173",
+        clientOrigin, trustProxy,
     }))
 
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -81,4 +81,31 @@ test("rejects invalid fields and unapproved images", async (context) => {
     })
 
     assert.equal(response.status, 400)
+})
+
+
+test("allows each configured origin and rejects unlisted origins", async (context) => {
+    const server = await startTestServer("http://localhost:5173, https://ifeoluwafolami.com,https://hif26.ifeoluwafolami.com")
+    context.after(server.close)
+    for (const origin of ["http://localhost:5173", "https://ifeoluwafolami.com", "https://hif26.ifeoluwafolami.com"]) {
+        const response = await fetch(`${server.baseUrl}/api/wishes`, { method: "OPTIONS", headers: { origin } })
+        assert.equal(response.status, 204)
+        assert.equal(response.headers.get("access-control-allow-origin"), origin)
+    }
+    const response = await fetch(`${server.baseUrl}/health`, { headers: { origin: "https://unlisted.example" } })
+    assert.equal(response.status, 403)
+    assert.equal(response.headers.get("access-control-allow-origin"), null)
+})
+
+test("separates clients behind a trusted proxy without trusting headers by default", async (context) => {
+    for (const trustProxy of [false, true]) {
+        const server = await startTestServer("http://localhost:5173", trustProxy)
+        context.after(server.close)
+        for (let i = 0; i < 11; i++) {
+            const response = await fetch(`${server.baseUrl}/api/wishes`, {
+                method: "POST", headers: { "content-type": "application/json", "x-real-ip": `192.0.2.${i + 1}` }, body: "{}",
+            })
+            assert.equal(response.status, !trustProxy && i === 10 ? 429 : 400)
+        }
+    }
 })

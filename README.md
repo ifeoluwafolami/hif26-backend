@@ -32,5 +32,6 @@ The server generates wish IDs and timestamps. Submitted image IDs must match the
 
 - `MONGODB_URI` — required MongoDB connection string
 - `MONGODB_DB` — database name; defaults to `hif26`
-- `CLIENT_ORIGIN` — exact allowed frontend origin
+- `CLIENT_ORIGIN` — comma-separated exact allowed frontend origins (including their `https://` scheme)
+- `TRUST_PROXY` — set to `true` only behind a trusted reverse proxy that overwrites `X-Real-IP`; do not expose the backend port publicly
 - `PORT` — HTTP port; defaults to `3000`

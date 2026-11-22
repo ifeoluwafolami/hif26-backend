@@ -5,6 +5,7 @@ import type { WishRepository } from "./wish-repository.js"
 type AppOptions = {
     store: WishRepository
     clientOrigin: string
+    trustProxy?: boolean
 }
 
 const maximumBodySize = 16 * 1024
@@ -44,7 +45,8 @@ const readJsonBody = async (request: IncomingMessage): Promise<unknown> => {
     }
 }
 
-export const createApp = ({ store, clientOrigin }: AppOptions) => {
+export const createApp = ({ store, clientOrigin, trustProxy = false }: AppOptions) => {
+    const allowedOrigins = new Set(clientOrigin.split(",").map(origin => origin.trim()).filter(Boolean))
     const rateLimits = new Map<string, { count: number; resetAt: number }>()
 
     return async (request: IncomingMessage, response: ServerResponse) => {
@@ -53,7 +55,7 @@ export const createApp = ({ store, clientOrigin }: AppOptions) => {
         response.setHeader("cache-control", "no-store")
 
         const origin = request.headers.origin
-        if (origin === clientOrigin) {
+        if (origin && allowedOrigins.has(origin)) {
             response.setHeader("access-control-allow-origin", origin)
             response.setHeader("vary", "Origin")
             response.setHeader("access-control-allow-methods", "GET, POST, OPTIONS")
@@ -83,7 +85,8 @@ export const createApp = ({ store, clientOrigin }: AppOptions) => {
             }
 
             if (request.method === "POST" && url.pathname === "/api/wishes") {
-                const key = request.socket.remoteAddress ?? "unknown"
+                const proxyAddress = request.headers["x-real-ip"]
+                const key = trustProxy && typeof proxyAddress === "string" ? proxyAddress : request.socket.remoteAddress ?? "unknown"
                 const now = Date.now()
                 const current = rateLimits.get(key)
                 const rateLimit = !current || current.resetAt <= now

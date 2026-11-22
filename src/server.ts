@@ -24,7 +24,7 @@ if (!mongoUri) {
 }
 
 const { client, store } = await connectToMongo(mongoUri, mongoDatabase)
-const server = createServer(createApp({ store, clientOrigin }))
+const server = createServer(createApp({ store, clientOrigin, trustProxy: process.env.TRUST_PROXY === "true" }))
 
 const shutdown = () => {
     server.close(() => {
